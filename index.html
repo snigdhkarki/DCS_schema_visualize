@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DCS databases, subdetectors and systems</title>
+<style>
+:root {
+  --bg: #f7f8fa; --fg: #1d2530; --muted: #6a7482; --line: #c9d0da;
+  --accent: #1f5fae; --hover: #e8edf4;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15191f; --fg: #e3e8ef; --muted: #97a1b0; --line: #3a4350;
+    --accent: #7db2ee; --hover: #232a34; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15191f; --fg: #e3e8ef; --muted: #97a1b0; --line: #3a4350;
+  --accent: #7db2ee; --hover: #232a34; color-scheme: dark;
+}
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+main { max-width: 640px; margin: 0 auto; padding: 2rem 1.25rem 3rem; }
+h1 { font-size: 1.4rem; margin: 0 0 .25rem; }
+.hint { margin: 0 0 1.5rem; color: var(--muted); }
+summary {
+  cursor: pointer; list-style: none; padding: .3rem .4rem; border-radius: 4px;
+  display: flex; align-items: baseline; gap: .5rem;
+}
+summary::-webkit-details-marker { display: none; }
+summary::before { content: "\25B8"; color: var(--muted); width: 1em; flex: none; }
+details[open] > summary::before { content: "\25BE"; }
+summary:hover { background: var(--hover); }
+summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.count { color: var(--muted); font-size: .9rem; }
+.db > summary { font-weight: 600; font-size: 1.1rem; color: var(--accent); }
+.children { margin-left: .9rem; padding-left: .9rem; border-left: 1px solid var(--line); }
+.leaf {
+  padding: .15rem .4rem .15rem 1.5rem; overflow-wrap: anywhere;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .92rem;
+}
+#tip {
+  position: fixed; z-index: 10; max-width: 20rem; padding: .45rem .65rem; border-radius: 4px;
+  background: var(--fg); color: var(--bg); font-size: .85rem; line-height: 1.4;
+  pointer-events: none; opacity: 0; transition: opacity .1s; left: 0; top: 0;
+}
+#tip.on { opacity: 1; }
+</style>
+</head>
+<body>
+<main>
+  <h1>DCS databases</h1>
+  <p class="hint">Open a database to see its subdetectors, then a subdetector to see its systems. Hover over any name for a guess at what it holds. The guesses come from the names, so treat them as hints.</p>
+  <div id="tree"></div>
+</main>
+
+<script>
+const DATA = {
+  ATONR_ADG: {
+    subdetectors: `MDT DCS LAR TDQ RPC SCT TRT IDE PIX TIL STG AFP LUC ZDC RPO MMG DCSIS TGC CSC MUO`,
+    systems: `MDT
+ATLMDTMDM4
+ATLMDTMDM7
+ATLMDTSCS
+ATLMDTMDM8
+ATLMDTELTX
+ATLMDTGMC1
+ATLMDTMDM9
+ATLMDTAUX1
+ATLMDTGMC2
+ATLMDTBAL9
+ATLMDTMON
+ATLMDTPS3
+ATLMDTMDM3
+ATLMDTMDM6
+ATLMDTMDM1
+ATLMDTPS2
+ATLMDTMTM
+ATLMDTMDM2
+ATLMDTMDM5
+System1
+DCS
+ATLGCSLHC
+ATLCICUX
+ATLIDGSCS
+ATLGCSDDC
+ATLGCSTI
+ATLCICUSAL2
+ATLCICSCS
+ATLFWDSCS
+ATLCALSCS
+ATLGCSKHTST
+ATLCICUS15
+ATLCICUXDET
+ATLGCSWEB03
+ATLGCSOI2
+ATLGCSSYS
+ATLGCSLUMI
+ATLGCSACS
+ATLCICSDX1
+ATLCICUSAL1
+System1
+LAR
+ATLLARHECLV
+ATLLARHV2
+ATLLARHV7
+ATLLARPUR
+ATLLARHV8
+ATLLARHV10
+ATLLARHV5
+ATLLARHV9
+ATLLARHV3
+ATLLARDAQMON
+ATLLARLDPB
+ATLLARROD
+ATLLARHV1
+ATLLARDTATCA
+ATLLARTERMO
+ATLLARHV6
+ATLLARCLVTEMP
+ATLLARSCS
+ATLLARLTDB
+System1
+TDQ
+ATLTDQL1CTREX
+ATLTDQLV1LCS
+ATLTDQL1TOPO
+ATLTDQL1CJFEX
+ATLTDQL1CEFEX
+ATLTDQMUCTPI
+ATLTDQSCS
+ATLTDQL1TFPGA
+ATLTDQL1CGFEX
+ATLTDQFTKVME
+System1
+RPC
+ATLRPCPAD
+ATLRPCH1
+ATLRPCH2
+ATLRPCDM
+ATLRPCL2
+ATLRPCSCS
+ATLRPCL1
+ATLRPCMON
+System1
+SCT
+ATLSCTUSEPS2
+ATLSCTUSBPS2
+ATLSCTUSABPS2
+ATLSCTUSAEPS2
+ATLSCTUSAEPS1
+ATLSCTUSBPS1
+ATLSCTUSENV
+ATLSCTUSABPS1
+PCSRSCTDCS3
+ATLSCTUSAENV
+ATLSCTUSEPS1
+ATLSCTSCS
+System1
+TRT
+ATLTRTLCS1
+ATLTRTHVA
+ATLTRTCHROM
+ATLTRTPPC2
+ATLTRTPPA2
+ATLTRTHVB
+ATLTRTGGSS
+ATLTRTSCS
+ATLTRTPPA1
+ATLTRTPPC1
+ATLTRTHVC
+IDE
+ATLIDEEVCOOL
+ATLIDEENV
+ATLIDETEH
+ATLIDERAD
+ATLIDEMAG
+ATLIDESNR
+ATLIDEBCM2
+ATLIDEBCM
+ATLIDESCS
+ATLIDEBLM
+System1
+PIX
+ATLPIXILOCK
+ATLPIXFSML1
+ATLPIXHVUSA
+ATLPIXLCS7
+ATLPIXSCS
+ATLPIXIBLDBM
+ATLPIXIBLPS
+ATLPIXDDC
+ATLPIXIBLFSM
+ATLPIXLCS6
+ATLPIXHVUS
+ATLPIXLV
+ATLPIXDAQ
+ATLPIXTMON
+ATLPIXLCS5
+ATLPIXIBLCO2
+ATLPIXCANPS
+ATLPIXHVPP4
+ATLPIXFSML0D
+ATLPIXFSML2
+ATLPIXPP2
+ATLPIXIBLMON
+System1
+TIL
+ATLTILLV00
+ATLTILLV01
+ATLTILSCS
+ATLTILLV02
+ATLTILLV03
+ATLTILINF
+System1
+STG
+ATLSTGLVA
+ATLSTGLVC
+ATLSTGSCS
+ATLSTGELTXC
+ATLSTGELTXA
+ATLSTGHVC
+ATLSTGHVA
+System1
+AFP
+ATLAFPLCS
+System1
+LUC
+ATLLCD02
+ATLLCD01
+System1
+ZDC
+ATLZDC01
+System1
+RPO
+ATLRPOLCS
+System1
+MMG
+ATLMMGELTXA
+ATLMMGHVC
+ATLMMGHVA
+ATLMMGSCS
+ATLMMGLVA
+ATLMMGELTXC
+ATLMMGLVC
+System1
+DCSIS
+ATLGCSIS3
+ATLMPXLCS01
+ATLGCSIS1
+ATLGCSIS2
+System1
+TGC
+ATLTGCC3
+ATLTGCC1
+ATLTGCA1
+ATLTGCC2
+ATLTGCA3
+ATLTGCSCS
+ATLTGCA2
+System1
+CSC
+ATLCSCSCS
+ATLCSCATCA
+System1
+MUO
+ATLMUOLCS01
+ATLMUONSWINF1
+ATLMUONSWINF3
+ATLMUONSWINF2
+ATLMUONSWMDM
+ATLMUOSCS
+System1`
+  },
+  INT8R: {
+    subdetectors: `MDT DCS LAR TDQ RPC SCT TRT`,
+    systems: `MDT
+System1
+DCS
+ATLCICSR1
+ATLGCSACS
+ATLGCSLHC
+ATLGCSNGATST
+ATLGCSTST
+dist_45
+ATLGCSLUMI
+dist_37
+dist_779
+ATLP2CTST
+ATLCICSCS
+ATLCICUS15
+ATLGCSLHCTST1
+ATLGCSP2CTST
+ATLCICUSAL1
+System1
+LAR
+ATLLARLDPB
+ATLLARFE
+ATLLARPH2ATCA
+ATLLARDTATCA
+ATLLARLTDBEMF
+ATLLARHV1
+ATLLARL1ATCA
+ATLLARLTDB
+System1
+TDQ
+ATLTDQL1CGATCA
+ATLTDQL1CGFEX
+ATLTDQL0GLOBAL
+ATLGCSLUMI
+ATLTDQL1CEFEX
+ATLTDQL1CTREX
+ATLTDQSCS
+ATLTDQL1TOPO
+ATLTDQL1CJFEX
+System1
+RPC
+ATLGCSLUMI
+ATLRPCSCA
+System1
+SCT
+ATLSCTSR1ENV
+System1
+TRT
+ATLTRTSR1LCS1
+ATLTRTPPA1
+ATLTRTPPC2
+ATLTRTPPA2
+ATLTRTSR1HV
+ATLTRTTEST104
+ATLTRTPPC1
+System1`
+  }
+};
+
+// A line that matches a subdetector name starts a new group; every other line is a system of the current group.
+function parse(db) {
+  const groups = new Map(db.subdetectors.split(/\s+/).map(n => [n, []]));
+  let current = null;
+  for (const raw of db.systems.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (groups.has(line)) current = groups.get(line);
+    else if (current) current.push(line);
+  }
+  return groups;
+}
+
+function branch(label, count, className, tip) {
+  const d = document.createElement("details");
+  if (className) d.className = className;
+  const s = document.createElement("summary");
+  s.append(label);
+  s.dataset.tip = tip;
+  const c = document.createElement("span");
+  c.className = "count";
+  c.textContent = "(" + count + ")";
+  s.append(c);
+  d.append(s);
+  const box = document.createElement("div");
+  box.className = "children";
+  d.append(box);
+  return { d, box };
+}
+
+const DB_TIPS = {
+  ATONR_ADG: "Production database and the default target. Most likely holds the real detector operation data, replicated from the Oracle instance of the same name.",
+  INT8R: "Integration database, used for testing. It holds fewer subdetectors than production."
+};
+
+// [short name, description used in the hover text]
+const SUBS = {
+  MDT: ["MDT muon tracking chambers", "the Monitored Drift Tube (MDT) chambers, which track muons: control and monitoring data such as power supplies and front-end electronics"],
+  DCS: ["ATLAS-wide DCS", "the central Detector Control System and the infrastructure shared by all detectors (global control stations, common infrastructure controls)"],
+  LAR: ["Liquid Argon calorimeter", "the Liquid Argon (LAr) calorimeter, which measures particle energy: high voltage, cryogenic temperatures and readout electronics"],
+  TDQ: ["trigger and data-quality systems", "trigger and data-quality hardware (the repo notes call it Timing and Data Quality, and the systems include level-1 trigger and topological trigger electronics)"],
+  RPC: ["RPC muon trigger chambers", "the Resistive Plate Chambers, a fast muon detector used for triggering in the barrel"],
+  SCT: ["SCT silicon tracker", "the Semiconductor Tracker, a silicon strip tracker in the inner detector"],
+  TRT: ["TRT straw tracker", "the Transition Radiation Tracker, the outermost inner-detector tracker, built from gas-filled straw tubes"],
+  IDE: ["Inner Detector as a whole", "the Inner Detector as a whole: shared systems such as cooling, environment, magnet and beam monitoring"],
+  PIX: ["Pixel detector", "the Pixel detector, the innermost silicon tracker, including the Insertable B-Layer (IBL)"],
+  TIL: ["Tile calorimeter", "the Tile Calorimeter (TileCal), the hadronic calorimeter in the barrel"],
+  STG: ["sTGC chambers", "the small-strip Thin Gap Chambers (sTGC), part of the New Small Wheel muon upgrade"],
+  AFP: ["ATLAS Forward Proton detector", "the ATLAS Forward Proton (AFP) detector, which tags protons scattered at very small angles"],
+  LUC: ["LUCID luminosity detector", "LUCID, the Cherenkov detector used to measure luminosity"],
+  ZDC: ["Zero Degree Calorimeter", "the Zero Degree Calorimeter, which sits close to the beam line and is used mainly in heavy-ion runs"],
+  RPO: ["Roman Pot operations", "the Roman Pot operations, the mechanics that move the AFP detectors close to the beam"],
+  MMG: ["Micromegas chambers", "the Micromegas detectors, part of the New Small Wheel muon upgrade"],
+  DCSIS: ["DCS Information Server", "the DCS Information Server systems"],
+  TGC: ["TGC muon trigger chambers", "the Thin Gap Chambers, which trigger on muons in the end-caps"],
+  CSC: ["Cathode Strip Chambers", "the Cathode Strip Chambers, muon tracking chambers in the innermost end-cap region"],
+  MUO: ["Muon Spectrometer (top level)", "the top-level control of the Muon Spectrometer, including New Small Wheel infrastructure"]
+};
+
+// Name fragments and what they most likely stand for. All matching fragments are combined.
+const TOKENS = [
+  ["SCS", "sub-detector control station"], ["LCS", "local control station"],
+  ["GCS", "global control station"], ["CIC", "common infrastructure controls"],
+  ["PS", "power supply"], ["HV", "high voltage"], ["LV", "low voltage"],
+  ["ELTX", "front-end electronics"], ["DAQ", "data acquisition"],
+  ["DDC", "DAQ-DCS communication"], ["MON", "monitoring"], ["ENV", "environment"],
+  ["TEMP", "temperature"], ["COOL", "cooling"], ["CO2", "CO2 cooling"],
+  ["MAG", "magnet"], ["RAD", "radiation"], ["BCM", "beam condition monitor"],
+  ["BLM", "beam loss monitor"], ["DBM", "diamond beam monitor"], ["FSM", "state machine"],
+  ["ILOCK", "interlock"], ["IBL", "Insertable B-Layer"], ["ATCA", "ATCA crate hardware"],
+  ["CAN", "CAN bus"], ["LUMI", "luminosity"], ["NGA", "next-generation archiver"],
+  ["TST", "test"], ["INF", "infrastructure"], ["SDX1", "SDX1 data centre"],
+  ["SR1", "surface building SR1"], ["US15", "USA15 service cavern"], ["UX", "UX15 experiment cavern"]
+];
+
+const SYS_NOTES = {
+  System1: "Appears in most subdetectors. Probably a default project name. Its meaning is not clear from the data.",
+  ATLTDQLV1LCS: "Most likely the local control station of the level-1 trigger.",
+  ATLLARCLVTEMP: "Most likely cryogenic low-voltage temperature monitoring data for the Liquid Argon calorimeter."
+};
+
+function describeSub(sub) {
+  const s = SUBS[sub];
+  return s ? "Most likely data from " + s[1] + "." : "No description available.";
+}
+
+function describeSystem(name, sub) {
+  if (SYS_NOTES[name]) return SYS_NOTES[name];
+  if (/^dist_\d+$/.test(name)) return "Probably a link to another WinCC OA system (number " + name.slice(5) + "), not a regular project.";
+  const short = (SUBS[sub] || [sub])[0];
+  const rest = name.startsWith("ATL") ? name.slice(3) : name;
+  const parts = TOKENS.filter(([k]) => rest.includes(k)).map(([, v]) => v);
+  return parts.length
+    ? "Most likely " + parts.join(", ") + " data for the " + short + "."
+    : "Not clear from the name alone. It is one of the projects listed under the " + short + ".";
+}
+
+// One shared tooltip that follows the pointer and stays inside the window.
+const tip = document.createElement("div");
+tip.id = "tip";
+document.body.append(tip);
+function place(x, y) {
+  const r = tip.getBoundingClientRect();
+  let left = x + 12, top = y + 14;
+  if (left + r.width > innerWidth - 8) left = innerWidth - r.width - 8;
+  if (top + r.height > innerHeight - 8) top = y - r.height - 10;
+  tip.style.left = Math.max(8, left) + "px";
+  tip.style.top = Math.max(8, top) + "px";
+}
+document.addEventListener("mouseover", e => {
+  const t = e.target.closest("[data-tip]");
+  if (!t) { tip.classList.remove("on"); return; }
+  tip.textContent = t.dataset.tip;
+  tip.classList.add("on");
+  place(e.clientX, e.clientY);
+});
+document.addEventListener("mousemove", e => { if (tip.classList.contains("on")) place(e.clientX, e.clientY); });
+document.addEventListener("focusin", e => {
+  const t = e.target.closest("[data-tip]");
+  if (!t || !t.matches(":focus-visible")) return;
+  const b = t.getBoundingClientRect();
+  tip.textContent = t.dataset.tip;
+  tip.classList.add("on");
+  place(b.left, b.bottom - 12);
+});
+document.addEventListener("focusout", () => tip.classList.remove("on"));
+
+const tree = document.getElementById("tree");
+for (const [dbName, db] of Object.entries(DATA)) {
+  const groups = parse(db);
+  const top = branch(dbName, groups.size, "db", DB_TIPS[dbName]);
+  for (const [sub, systems] of groups) {
+    const mid = branch(sub, systems.length, "", describeSub(sub));
+    for (const sys of systems) {
+      const leaf = document.createElement("div");
+      leaf.className = "leaf";
+      leaf.textContent = sys;
+      leaf.dataset.tip = describeSystem(sys, sub);
+      mid.box.append(leaf);
+    }
+    top.box.append(mid.d);
+  }
+  tree.append(top.d);
+}
+</script>
+</body>
+</html>
