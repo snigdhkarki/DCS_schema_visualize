@@ -47,6 +47,9 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   padding: .15rem .4rem .15rem 1.5rem; overflow-wrap: anywhere;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .92rem;
 }
+a.leaf { display: block; color: inherit; text-decoration: none; border-radius: 4px; }
+a.leaf:hover { background: var(--hover); color: var(--accent); }
+a.leaf:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 #tip {
   position: fixed; z-index: 10; max-width: 20rem; padding: .45rem .65rem; border-radius: 4px;
   background: var(--fg); color: var(--bg); font-size: .85rem; line-height: 1.4;
@@ -58,10 +61,11 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 <body>
 <main>
   <h1>DCS databases</h1>
-  <p class="hint">Open a database to see its subdetectors, then a subdetector to see its systems. Hover over any name for a guess at what it holds. The guesses come from the names, so treat them as hints.</p>
+  <p class="hint">Open a database to see its subdetectors, then a subdetector to see its systems. Hover over any name for a guess at what it holds. The guesses come from the names, so treat them as hints. Click a system to see the list of elements it contains.</p>
   <div id="tree"></div>
 </main>
 
+<script src="config.js"></script>
 <script>
 const DATA = {
   ATONR_ADG: {
@@ -354,9 +358,22 @@ function parse(db) {
   return groups;
 }
 
-function branch(label, count, className, tip) {
+// Remember which branches are open, so coming back from an element list (Back button) keeps the tree as it was.
+const OPEN_KEY = "dcs-tree-open";
+let openSet = new Set();
+try { openSet = new Set(JSON.parse(sessionStorage.getItem(OPEN_KEY) || "[]")); } catch (e) {}
+function remember(d, key) {
+  d.open = openSet.has(key);
+  d.addEventListener("toggle", () => {
+    if (d.open) openSet.add(key); else openSet.delete(key);
+    try { sessionStorage.setItem(OPEN_KEY, JSON.stringify([...openSet])); } catch (e) {}
+  });
+}
+
+function branch(label, count, className, tip, key) {
   const d = document.createElement("details");
   if (className) d.className = className;
+  remember(d, key);
   const s = document.createElement("summary");
   s.append(label);
   s.dataset.tip = tip;
@@ -471,11 +488,14 @@ document.addEventListener("focusout", () => tip.classList.remove("on"));
 const tree = document.getElementById("tree");
 for (const [dbName, db] of Object.entries(DATA)) {
   const groups = parse(db);
-  const top = branch(dbName, groups.size, "db", DB_TIPS[dbName]);
+  const lists = (window.ELEMENT_LISTS || {})[dbName];  // set in config.js; absent = no element lists for this database
+  const top = branch(dbName, groups.size, "db", DB_TIPS[dbName], dbName);
   for (const [sub, systems] of groups) {
-    const mid = branch(sub, systems.length, "", describeSub(sub));
+    const mid = branch(sub, systems.length, "", describeSub(sub), dbName + "/" + sub);
     for (const sys of systems) {
-      const leaf = document.createElement("div");
+      const linked = lists && !(lists.skip || []).includes(sys);
+      const leaf = document.createElement(linked ? "a" : "div");
+      if (linked) leaf.href = "elements.html?" + new URLSearchParams({ db: dbName, sub, sys });
       leaf.className = "leaf";
       leaf.textContent = sys;
       leaf.dataset.tip = describeSystem(sys, sub);
